@@ -17,11 +17,14 @@ def main(page: ft.Page):
     # --- UI COMPONENTS ---
     header = ft.Column([
         ft.Text("Voice Clone Studio", size=30, weight=ft.FontWeight.BOLD, color="blue"),
-        ft.Text("Debug Mode: Buttons are unlocked.", size=16, color="white70"),
+        ft.Text("Upload a sample, then type to speak.", size=16, color="white70"),
         ft.Divider(),
     ])
 
-    status_text = ft.Text("System Ready. Check Terminal for logs.", color="yellow")
+    status_text = ft.Text("System Ready.", color="yellow")
+    
+    # Loading Spinner (Hidden by default)
+    loading_ring = ft.ProgressRing(visible=False)
     
     audio_player = ft.Audio(
         src="https://luan.xyz/files/audio/ambient_c_motion.mp3", 
@@ -31,40 +34,36 @@ def main(page: ft.Page):
 
     # --- LOGIC ---
     def pick_files_result(e: ft.FilePickerResultEvent):
-        print("PYTHON: File Picker Finished!") # <--- LOOK FOR THIS IN TERMINAL
+        loading_ring.visible = False # Hide spinner
+        page.update()
+        
         nonlocal voice_file_path
         if e.files:
-            print(f"PYTHON: File found: {e.files[0].name}")
             voice_file_path = e.files[0].path
             status_text.value = f"Selected: {e.files[0].name}"
             status_text.color = "green"
-            page.update()
+            clone_btn.disabled = False
         else:
-            print("PYTHON: User cancelled or no file found.")
-            status_text.value = "No file selected (Try Desktop Mode)"
+            status_text.value = "Cancelled. Please try again."
+            status_text.color = "red"
+        page.update()
 
     def open_picker(e):
-        print("PYTHON: Upload Button Clicked!") # <--- LOOK FOR THIS
-        status_text.value = "Opening File Picker..."
+        status_text.value = "Opening iPhone File Menu..."
+        loading_ring.visible = True # Show spinner
         page.update()
         file_picker.pick_files()
 
     def clone_voice(e):
-        print("PYTHON: Learn Voice Clicked!")
-        if not voice_file_path: 
-            status_text.value = "Error: You must pick a file first!"
-            status_text.color = "red"
-            page.update()
-            return
-            
-        status_text.value = "Learning voice... please wait."
-        status_text.color = "blue"
+        if not voice_file_path: return
+        
+        status_text.value = "Uploading to AI Brain..."
+        loading_ring.visible = True
         page.update()
 
         url = "https://api.elevenlabs.io/v1/voice-cloning/instant-voice-cloning"
         headers = {"xi-api-key": API_KEY}
         try:
-            print("PYTHON: Sending file to ElevenLabs...")
             files = {'files': (open(voice_file_path, 'rb'))}
             data = {'name': 'MyClonedVoice'}
             
@@ -76,22 +75,18 @@ def main(page: ft.Page):
                 status_text.value = "Voice Learned! Type below."
                 status_text.color = "green"
                 input_area.visible = True
-                print(f"PYTHON: Success! Voice ID: {cloned_voice_id}")
             else:
                 status_text.value = f"Error: {response.text}"
-                print(f"PYTHON: API Error: {response.text}")
         except Exception as err:
             status_text.value = f"Error: {err}"
-            print(f"PYTHON: Crash: {err}")
+        
+        loading_ring.visible = False
         page.update()
 
     def generate_speech(e):
-        print("PYTHON: Speak Button Clicked!")
-        if not cloned_voice_id: 
-            status_text.value = "Error: No voice learned yet."
-            return
-            
+        if not cloned_voice_id: return
         status_text.value = "Generating Audio..."
+        loading_ring.visible = True
         page.update()
 
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{cloned_voice_id}"
@@ -105,7 +100,6 @@ def main(page: ft.Page):
         }
 
         try:
-            print("PYTHON: Requesting audio...")
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 200:
                 status_text.value = "Playing Audio..."
@@ -114,28 +108,26 @@ def main(page: ft.Page):
                 audio_player.src_base64 = audio_data
                 audio_player.autoplay = True
                 audio_player.update()
-                print("PYTHON: Audio playing!")
             else:
                 status_text.value = f"Error: {response.text}"
         except Exception as err:
              status_text.value = f"Error: {err}"
+        
+        loading_ring.visible = False
         page.update()
 
     # --- LAYOUT ---
     file_picker = ft.FilePicker(on_result=pick_files_result)
     page.overlay.append(file_picker)
     
-    # Button calls the wrapper function to print log first
     upload_btn = ft.ElevatedButton("1. Upload Voice", on_click=open_picker)
-    
-    # FIXED: Button is ENABLED by default so you can click it
-    clone_btn = ft.ElevatedButton("2. Learn Voice", disabled=False, on_click=clone_voice)
+    clone_btn = ft.ElevatedButton("2. Learn Voice", disabled=True, on_click=clone_voice)
     
     prompt_input = ft.TextField(label="What should I say?")
     speak_btn = ft.ElevatedButton("3. Speak", on_click=generate_speech)
-    input_area = ft.Column([prompt_input, speak_btn], visible=True)
+    input_area = ft.Column([prompt_input, speak_btn], visible=False)
 
-    page.add(header, upload_btn, clone_btn, status_text, input_area)
+    page.add(header, upload_btn, loading_ring, clone_btn, status_text, input_area)
 
 ft.app(target=main)
 
