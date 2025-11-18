@@ -22,9 +22,12 @@ def main(page: ft.Page):
 
     status_text = ft.Text("Waiting for voice sample...", color="yellow")
     
-    # FIXED: Autoplay is OFF so it doesn't crash on start. 
-    # It will only play when we tell it to later.
-    audio_player = ft.Audio(src="", autoplay=False)
+    # FIXED: We give it a sample URL so it doesn't crash.
+    # It won't play (autoplay=False) until we generate your voice later.
+    audio_player = ft.Audio(
+        src="https://luan.xyz/files/audio/ambient_c_motion.mp3", 
+        autoplay=False
+    )
     page.overlay.append(audio_player)
 
     # --- LOGIC ---
@@ -81,14 +84,14 @@ def main(page: ft.Page):
         try:
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 200:
-                # Save file with a unique name so browser doesn't cache it
+                # Save file with a unique name
                 filename = f"output_{int(time.time())}.mp3"
                 with open(filename, 'wb') as f:
                     f.write(response.content)
                 
                 status_text.value = "Playing Audio..."
                 
-                # FIXED: Now we give it the file and tell it to play
+                # NOW we update the player to use YOUR file and play it
                 audio_player.src = filename
                 audio_player.autoplay = True
                 audio_player.update()
