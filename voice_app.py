@@ -1,6 +1,5 @@
 import flet as ft
 import requests
-import time
 import base64
 
 # --- PASTE YOUR API KEY HERE ---
@@ -23,11 +22,9 @@ def main(page: ft.Page):
 
     status_text = ft.Text("Waiting for voice sample...", color="yellow")
     
-    # --- THE FIX IS HERE ---
-    # We provide a 'dummy' source so the App doesn't crash on launch.
-    # It won't play anything because autoplay is False.
+    # SAFETY NET: We start with a dummy URL so the app doesn't crash on launch.
     audio_player = ft.Audio(
-        src="https://luan.xyz/files/audio/ambient_c_motion.mp3",
+        src="https://luan.xyz/files/audio/ambient_c_motion.mp3", 
         autoplay=False
     )
     page.overlay.append(audio_player)
@@ -86,15 +83,15 @@ def main(page: ft.Page):
         try:
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 200:
-                # Save the new audio file
-                filename = f"output_{int(time.time())}.mp3"
-                with open(filename, 'wb') as f:
-                    f.write(response.content)
-                
                 status_text.value = "Playing Audio..."
                 
-                # SWAP the dummy source for the Real Voice
-                audio_player.src = filename
+                # --- THE NEW FIX ---
+                # Instead of saving a file, we convert the sound to text code (Base64)
+                # This forces the browser to play it immediately.
+                audio_data = base64.b64encode(response.content).decode("utf-8")
+                
+                audio_player.src = None  # Clear the old link
+                audio_player.src_base64 = audio_data # Inject the new sound
                 audio_player.autoplay = True
                 audio_player.update()
             else:
