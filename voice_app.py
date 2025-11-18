@@ -1,9 +1,11 @@
 import flet as ft
 import requests
 import time
+import base64
 
 # --- PASTE YOUR API KEY HERE ---
 API_KEY = "sk_d53c89a985520a9804e13f05be17687ef79d72362d309748"
+
 def main(page: ft.Page):
     page.title = "AI Voice Cloner"
     page.theme_mode = ft.ThemeMode.DARK
@@ -21,9 +23,11 @@ def main(page: ft.Page):
 
     status_text = ft.Text("Waiting for voice sample...", color="yellow")
     
-    # FIXED: We give it a real URL placeholder so it launches safely.
+    # --- THE FIX IS HERE ---
+    # We provide a 'dummy' source so the App doesn't crash on launch.
+    # It won't play anything because autoplay is False.
     audio_player = ft.Audio(
-        src="https://luan.xyz/files/audio/ambient_c_motion.mp3", 
+        src="https://luan.xyz/files/audio/ambient_c_motion.mp3",
         autoplay=False
     )
     page.overlay.append(audio_player)
@@ -82,14 +86,14 @@ def main(page: ft.Page):
         try:
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 200:
-                # Save file with a unique name so browser plays the new one
+                # Save the new audio file
                 filename = f"output_{int(time.time())}.mp3"
                 with open(filename, 'wb') as f:
                     f.write(response.content)
                 
                 status_text.value = "Playing Audio..."
                 
-                # Switch the player to the new file and play it
+                # SWAP the dummy source for the Real Voice
                 audio_player.src = filename
                 audio_player.autoplay = True
                 audio_player.update()
