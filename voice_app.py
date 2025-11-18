@@ -4,7 +4,6 @@ import time
 
 # --- PASTE YOUR API KEY HERE ---
 API_KEY = "sk_d53c89a985520a9804e13f05be17687ef79d72362d309748"
-
 def main(page: ft.Page):
     page.title = "AI Voice Cloner"
     page.theme_mode = ft.ThemeMode.DARK
@@ -22,8 +21,7 @@ def main(page: ft.Page):
 
     status_text = ft.Text("Waiting for voice sample...", color="yellow")
     
-    # FIXED: We give it a sample URL so it doesn't crash.
-    # It won't play (autoplay=False) until we generate your voice later.
+    # FIXED: We give it a real URL placeholder so it launches safely.
     audio_player = ft.Audio(
         src="https://luan.xyz/files/audio/ambient_c_motion.mp3", 
         autoplay=False
@@ -84,14 +82,14 @@ def main(page: ft.Page):
         try:
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 200:
-                # Save file with a unique name
+                # Save file with a unique name so browser plays the new one
                 filename = f"output_{int(time.time())}.mp3"
                 with open(filename, 'wb') as f:
                     f.write(response.content)
                 
                 status_text.value = "Playing Audio..."
                 
-                # NOW we update the player to use YOUR file and play it
+                # Switch the player to the new file and play it
                 audio_player.src = filename
                 audio_player.autoplay = True
                 audio_player.update()
