@@ -17,13 +17,11 @@ def main(page: ft.Page):
     # --- UI COMPONENTS ---
     header = ft.Column([
         ft.Text("Voice Clone Studio", size=30, weight=ft.FontWeight.BOLD, color="blue"),
-        ft.Text("Upload a sample, then type to speak.", size=16, color="white70"),
+        ft.Text("Upload audio to clone voice.", size=16, color="white70"),
         ft.Divider(),
     ])
 
     status_text = ft.Text("System Ready.", color="yellow")
-    
-    # Loading Spinner (Hidden by default)
     loading_ring = ft.ProgressRing(visible=False)
     
     audio_player = ft.Audio(
@@ -34,7 +32,7 @@ def main(page: ft.Page):
 
     # --- LOGIC ---
     def pick_files_result(e: ft.FilePickerResultEvent):
-        loading_ring.visible = False # Hide spinner
+        loading_ring.visible = False
         page.update()
         
         nonlocal voice_file_path
@@ -44,30 +42,30 @@ def main(page: ft.Page):
             status_text.color = "green"
             clone_btn.disabled = False
         else:
-            status_text.value = "Cancelled. Please try again."
+            status_text.value = "Cancelled."
             status_text.color = "red"
         page.update()
 
     def open_picker(e):
-        status_text.value = "Opening iPhone File Menu..."
-        loading_ring.visible = True # Show spinner
+        status_text.value = "Please select a file..."
+        loading_ring.visible = True
         page.update()
-        file_picker.pick_files()
+        file_picker.pick_files(allow_multiple=False)
 
     def clone_voice(e):
         if not voice_file_path: return
         
-        status_text.value = "Uploading to AI Brain..."
+        status_text.value = "Uploading to AI..."
         loading_ring.visible = True
         page.update()
 
         url = "https://api.elevenlabs.io/v1/voice-cloning/instant-voice-cloning"
         headers = {"xi-api-key": API_KEY}
         try:
-            files = {'files': (open(voice_file_path, 'rb'))}
-            data = {'name': 'MyClonedVoice'}
-            
-            response = requests.post(url, headers=headers, data=data, files=files)
+            with open(voice_file_path, 'rb') as f:
+                files = {'files': f}
+                data = {'name': 'MyClonedVoice'}
+                response = requests.post(url, headers=headers, data=data, files=files)
             
             if response.status_code == 200:
                 nonlocal cloned_voice_id
@@ -123,9 +121,11 @@ def main(page: ft.Page):
     upload_btn = ft.ElevatedButton("1. Upload Voice", on_click=open_picker)
     clone_btn = ft.ElevatedButton("2. Learn Voice", disabled=True, on_click=clone_voice)
     
-    prompt_input = ft.TextField(label="What should I say?")
+    prompt_input = ft.TextField(label="What should I say?", multiline=True)
     speak_btn = ft.ElevatedButton("3. Speak", on_click=generate_speech)
-    input_area = ft.Column([prompt_input, speak_btn], visible=False)
+    
+    # Important: We make the input area visible=True immediately so you can see it
+    input_area = ft.Column([ft.Divider(), prompt_input, speak_btn], visible=True)
 
     page.add(header, upload_btn, loading_ring, clone_btn, status_text, input_area)
 
