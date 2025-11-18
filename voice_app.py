@@ -1,7 +1,8 @@
 import flet as ft
 import requests
+import time
 
-# PASTE YOUR ELEVENLABS KEY HERE
+# --- PASTE YOUR API KEY HERE ---
 API_KEY = "sk_d53c89a985520a9804e13f05be17687ef79d72362d309748"
 
 def main(page: ft.Page):
@@ -20,7 +21,10 @@ def main(page: ft.Page):
     ])
 
     status_text = ft.Text("Waiting for voice sample...", color="yellow")
-    audio_player = ft.Audio(autoplay=True)
+    
+    # FIXED: Autoplay is OFF so it doesn't crash on start. 
+    # It will only play when we tell it to later.
+    audio_player = ft.Audio(src="", autoplay=False)
     page.overlay.append(audio_player)
 
     # --- LOGIC ---
@@ -41,11 +45,12 @@ def main(page: ft.Page):
 
         url = "https://api.elevenlabs.io/v1/voice-cloning/instant-voice-cloning"
         headers = {"xi-api-key": API_KEY}
-        files = {'files': (open(voice_file_path, 'rb'))}
-        data = {'name': 'MyClonedVoice'}
-
         try:
+            files = {'files': (open(voice_file_path, 'rb'))}
+            data = {'name': 'MyClonedVoice'}
+            
             response = requests.post(url, headers=headers, data=data, files=files)
+            
             if response.status_code == 200:
                 nonlocal cloned_voice_id
                 cloned_voice_id = response.json()['voice_id']
@@ -76,10 +81,16 @@ def main(page: ft.Page):
         try:
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 200:
-                with open("output.mp3", 'wb') as f:
+                # Save file with a unique name so browser doesn't cache it
+                filename = f"output_{int(time.time())}.mp3"
+                with open(filename, 'wb') as f:
                     f.write(response.content)
+                
                 status_text.value = "Playing Audio..."
-                audio_player.src = "output.mp3"
+                
+                # FIXED: Now we give it the file and tell it to play
+                audio_player.src = filename
+                audio_player.autoplay = True
                 audio_player.update()
             else:
                 status_text.value = f"Error: {response.text}"
