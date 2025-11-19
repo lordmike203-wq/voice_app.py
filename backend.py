@@ -1,30 +1,26 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, JSONResponse
-import requests
-import os
-
-app = FastAPI()
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
 
+# Create app
 app = FastAPI()
 
+# Allow all browsers / frontend to call this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],      # allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-ELEVEN_API_KEY = os.getenv("ELEVENLABS")  # or ELEVENLABS_API_KEY if that's your Render key
+# Get API key from Render environment
+# Make sure your Render KEY is exactly ELEVENLABS
+ELEVEN_API_KEY = os.getenv("ELEVENLABS")
 
-# 👇 uses the env var you set in Render (e.g. ELEVENLABS...)
-ELEVEN_API_KEY = os.getenv("ELEVENLABS")  # make sure the key name matches Render
-
+# ElevenLabs endpoints
 ELEVEN_CLONE_URL = "https://api.elevenlabs.io/v1/voice-cloning/instant-voice-cloning"
 ELEVEN_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
@@ -40,18 +36,18 @@ async def clone_voice(
     name: str = Form("MyClonedVoice"),
 ):
     """
-    Upload a voice sample and get back a voice_id from ElevenLabs.
+    Upload a voice sample and get a voice_id from ElevenLabs.
     """
     if not ELEVEN_API_KEY:
         return JSONResponse(
             status_code=500,
-            content={"error": "ELEVENLABS env var not set on server"},
+            content={"error": "ELEVENLABS API key missing on server"},
         )
 
     try:
         headers = {"xi-api-key": ELEVEN_API_KEY}
 
-        # Read file bytes from upload
+        # get file bytes
         file_bytes = await file.read()
 
         files = {
@@ -61,6 +57,7 @@ async def clone_voice(
                 file.content_type or "audio/wav",
             )
         }
+
         data = {"name": name}
 
         resp = requests.post(ELEVEN_CLONE_URL, headers=headers, data=data, files=files)
@@ -71,19 +68,20 @@ async def clone_voice(
             if not voice_id:
                 return JSONResponse(
                     status_code=500,
-                    content={"error": "No voice_id in ElevenLabs response", "raw": data},
+                    content={"error": "No voice_id returned", "raw": data},
                 )
+
             return {"voice_id": voice_id}
         else:
             return JSONResponse(
                 status_code=resp.status_code,
-                content={"error": "ElevenLabs error", "details": resp.text},
+                content={"error": "ElevenLabs clone error", "details": resp.text},
             )
 
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": f"Exception: {e}"},
+            content={"error": str(e)},
         )
 
 
@@ -93,12 +91,12 @@ async def speak(
     text: str = Form(...),
 ):
     """
-    Generate speech using a cloned voice.
+    Generate speech using the cloned voice.
     """
     if not ELEVEN_API_KEY:
         return JSONResponse(
             status_code=500,
-            content={"error": "ELEVENLABS env var not set on server"},
+            content={"error": "ELEVENLABS API key missing on server"},
         )
 
     if not text.strip():
@@ -112,6 +110,7 @@ async def speak(
         "Content-Type": "application/json",
         "xi-api-key": ELEVEN_API_KEY,
     }
+
     body = {
         "text": text,
         "model_id": "eleven_monolingual_v1",
@@ -122,6 +121,7 @@ async def speak(
 
         if resp.status_code == 200:
             audio_bytes = resp.content
+
             return StreamingResponse(
                 iter([audio_bytes]),
                 media_type="audio/mpeg",
@@ -135,5 +135,5 @@ async def speak(
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": f"Exception: {e}"},
+            content={"error": str(e)},
         )
