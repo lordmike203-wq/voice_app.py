@@ -3,13 +3,6 @@ import requests
 import base64
 import os
 import time
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # allow all origins (you can restrict later)
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # --- PASTE YOUR API KEY HERE ---
 # CRITICAL: This line reads the secret key from the secure Render environment
