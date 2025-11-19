@@ -4,8 +4,8 @@ import base64
 import os
 import time
 
-# CRITICAL CHANGE: The API key is now read from the secure Render environment
-# The value will be whatever you set for the variable ELEVENLABS_API_KEY on Render.
+# --- PASTE YOUR API KEY HERE ---
+# CRITICAL: This line reads the secret key from the secure Render environment
 API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
 def main(page: ft.Page):
@@ -25,7 +25,7 @@ def main(page: ft.Page):
         ft.Divider(),
     ])
 
-    status_text = ft.Text("System Ready. Check API Key on Render.", color="yellow")
+    status_text = ft.Text("System Ready.", color="yellow")
     # Anti-crash dummy audio source
     audio_player = ft.Audio(src="https://luan.xyz/files/audio/ambient_c_motion.mp3", autoplay=False)
     page.overlay.append(audio_player)
@@ -35,9 +35,9 @@ def main(page: ft.Page):
     def pick_files_result(e: ft.FilePickerResultEvent):
         nonlocal voice_file_bytes, voice_file_name
         
-        # Check if API Key is set in the environment
+        # Check API Key availability
         if not API_KEY:
-            status_text.value = "FATAL ERROR: API Key missing from Render Environment Variables."
+            status_text.value = "ERROR: API Key missing from Render config."
             status_text.color = "red"
             page.update()
             return
@@ -47,7 +47,7 @@ def main(page: ft.Page):
             voice_file_name = f.name
             
             try:
-                # Flet provides a temporary path (f.path) from which we can read the uploaded file bytes
+                # Read the file bytes directly after selection
                 with open(f.path, "rb") as file:
                     voice_file_bytes = file.read()
                 
@@ -67,7 +67,6 @@ def main(page: ft.Page):
     def open_picker(e):
         file_picker.pick_files(
             allow_multiple=False,
-            # CRITICAL FOR MOBILE: Request only audio files
             allowed_extensions=["mp3", "wav", "mpeg"],
         )
 
@@ -83,7 +82,6 @@ def main(page: ft.Page):
         headers = {"xi-api-key": API_KEY}
         
         try:
-            # We use a unique name every time to avoid caching issues on ElevenLabs
             voice_name = f"MyClonedVoice_{int(time.time())}" 
             
             files = {"files": (voice_file_name, voice_file_bytes, "audio/mpeg")}
@@ -97,7 +95,6 @@ def main(page: ft.Page):
                 status_text.color = "green"
                 input_area.visible = True
             else:
-                # Often returns error 400 for bad files
                 status_text.value = f"Cloning Error {response.status_code}: {response.text}"
                 status_text.color = "red"
 
@@ -138,16 +135,16 @@ def main(page: ft.Page):
              status_text.value = f"Network Error: {err}"
         page.update()
         
-    # --- DOWNLOAD HANDLERS ---
     def save_file(e):
-        # Trigger the native Save dialog
-        save_file_dialog.save_file(file_name="my_cloned_voice.mp3")
+        # This will only work on desktop/mobile app builds, not web
+        if current_audio_data:
+            # We will generate a temporary download URL via JS on the web for a cleaner experience
+            # For simplicity, we are using the filepicker here which is supported by Flet's platform logic
+            save_file_dialog.save_file(file_name="my_cloned_voice.mp3")
+
 
     def save_file_result(e: ft.FilePickerResultEvent):
-        # On successful file save, we get the local path back (e.path)
-        # We need the user's browser to save the base64 data, not the server.
-        # Since Flet's save_file is browser-managed for web, we rely on the
-        # initial trigger. This handler confirms the action.
+        # Confirmation for file save
         if e.path:
             status_text.value = f"File Saved!"
             status_text.color = "green"
@@ -177,7 +174,9 @@ def main(page: ft.Page):
 
     page.add(header, upload_btn, clone_btn, status_text, input_area)
 
-# IMPORTANT: Render provides a PORT environment variable. We must listen on it.
-app_port = int(os.getenv("PORT", 8000))
-ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=app_port, host="0.0.0.0")
+# IMPORTANT: This block is what Flet needs to launch.
+# It uses the PORT environment variable provided by Render.
+if __name__ == "__main__":
+    app_port = int(os.getenv("PORT", 8000))
+    ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=app_port, host="0.0.0.0")
 
