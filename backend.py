@@ -4,6 +4,23 @@ import requests
 import os
 
 app = FastAPI()
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import requests
+import os
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+ELEVEN_API_KEY = os.getenv("ELEVENLABS")  # or ELEVENLABS_API_KEY if that's your Render key
 
 # 👇 uses the env var you set in Render (e.g. ELEVENLABS...)
 ELEVEN_API_KEY = os.getenv("ELEVENLABS")  # make sure the key name matches Render
