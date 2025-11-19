@@ -6,6 +6,7 @@ import time
 
 # --- PASTE YOUR API KEY HERE ---
 # CRITICAL: This line reads the secret key from the secure Render environment
+# The API Key value is set on the Render Dashboard (ELEVENLABS_API_KEY)
 API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
 def main(page: ft.Page):
@@ -55,7 +56,7 @@ def main(page: ft.Page):
                 status_text.color = "green"
                 clone_btn.disabled = False
             except Exception as read_err:
-                status_text.value = f"File Read Error. Try a smaller file. {read_err}"
+                status_text.value = f"File Read Error: {read_err}. Try a smaller file."
                 status_text.color = "red"
                 clone_btn.disabled = True
         else:
@@ -72,7 +73,11 @@ def main(page: ft.Page):
 
     def clone_voice(e):
         nonlocal cloned_voice_id
-        if not voice_file_bytes: return
+        if not voice_file_bytes: 
+            status_text.value = "No voice file loaded."
+            status_text.color = "red"
+            page.update()
+            return
         
         status_text.value = "Uploading to AI Brain..."
         status_text.color = "blue"
@@ -105,8 +110,17 @@ def main(page: ft.Page):
 
     def generate_speech(e):
         nonlocal current_audio_data
-        if not cloned_voice_id: return
-        if not prompt_input.value.strip(): return
+        if not cloned_voice_id: 
+            status_text.value = "Clone a voice first."
+            status_text.color = "red"
+            page.update()
+            return
+            
+        if not prompt_input.value.strip():
+            status_text.value = "Enter text to speak."
+            status_text.color = "red"
+            page.update()
+            return
 
         status_text.value = "Generating speech..."
         status_text.color = "blue"
@@ -136,15 +150,11 @@ def main(page: ft.Page):
         page.update()
         
     def save_file(e):
-        # This will only work on desktop/mobile app builds, not web
-        if current_audio_data:
-            # We will generate a temporary download URL via JS on the web for a cleaner experience
-            # For simplicity, we are using the filepicker here which is supported by Flet's platform logic
-            save_file_dialog.save_file(file_name="my_cloned_voice.mp3")
-
+        # Trigger the native Save dialog
+        save_file_dialog.save_file(file_name="my_cloned_voice.mp3")
 
     def save_file_result(e: ft.FilePickerResultEvent):
-        # Confirmation for file save
+        # Confirmation for file save (this handler is primarily for mobile/desktop builds)
         if e.path:
             status_text.value = f"File Saved!"
             status_text.color = "green"
@@ -167,16 +177,15 @@ def main(page: ft.Page):
         icon=ft.icons.DOWNLOAD, 
         on_click=save_file, 
         visible=False,
-        bgcolor="green", color="white"
+        bgcolor=ft.colors.GREEN_700, 
+        color=ft.colors.WHITE
     )
     
     input_area = ft.Column([ft.Divider(), prompt_input, speak_btn, ft.Container(height=10), download_btn], visible=False)
 
     page.add(header, upload_btn, clone_btn, status_text, input_area)
 
-# IMPORTANT: This block is what Flet needs to launch.
-# It uses the PORT environment variable provided by Render.
-if __name__ == "__main__":
-    app_port = int(os.getenv("PORT", 8000))
-    ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=app_port, host="0.0.0.0")
+# CRITICAL FIX FOR RENDER: 
+# This line creates the 'app' object that the gunicorn Start Command needs.
+app = ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=int(os.getenv("PORT", 8000)), host="0.0.0.0")
 
