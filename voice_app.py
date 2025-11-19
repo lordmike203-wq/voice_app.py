@@ -2,61 +2,48 @@ import flet as ft
 import requests
 import base64
 
-# --- PASTE YOUR API KEY HERE ---
 API_KEY = "sk_d53c89a985520a9804e13f05be17687ef79d72362d309748"
 
 def main(page: ft.Page):
     page.title = "AI Voice Cloner"
     page.theme_mode = ft.ThemeMode.DARK
     page.scroll = ft.ScrollMode.AUTO
-    
-    # instead of path, store bytes and filename
+
     voice_file_bytes = None
     voice_file_name = None
     cloned_voice_id = None
-    
-    # --- UI COMPONENTS ---
+
     header = ft.Column(
         [
-            ft.Text(
-                "Voice Clone Studio",
-                size=30,
-                weight=ft.FontWeight.BOLD,
-                color="blue",
-            ),
+            ft.Text("Voice Clone Studio", size=30, weight=ft.FontWeight.BOLD, color="blue"),
             ft.Text("Upload a sample, then type to speak.", size=16, color="white70"),
             ft.Divider(),
         ]
     )
 
     status_text = ft.Text("System Ready.", color="yellow")
-    
-    audio_player = ft.Audio(
-        src="https://luan.xyz/files/audio/ambient_c_motion.mp3",
-        autoplay=False,
-    )
+
+    audio_player = ft.Audio(autoplay=False)
     page.overlay.append(audio_player)
 
-    # --- LOGIC ---
+    # ---------- FILE PICKER ----------
     def pick_files_result(e: ft.FilePickerResultEvent):
         nonlocal voice_file_bytes, voice_file_name
+        print("FilePickerResultEvent:", repr(e))   # *** VERY IMPORTANT ***
 
         if e.files:
-            # On web, path is usually not usable. Use bytes instead.
             f = e.files[0]
-            voice_file_bytes = f.bytes      # <-- IMPORTANT
+            voice_file_bytes = f.bytes
             voice_file_name = f.name
 
             if voice_file_bytes is None:
-                status_text.value = (
-                    "Could not read file bytes. Try again or use a smaller file."
-                )
+                status_text.value = "Could not read file bytes. Try again."
                 status_text.color = "red"
                 clone_btn.disabled = True
             else:
                 status_text.value = f"Selected: {voice_file_name}"
                 status_text.color = "green"
-                clone_btn.disabled = True if API_KEY == "" else False
+                clone_btn.disabled = False if API_KEY != "" else True
         else:
             status_text.value = "Cancelled or blocked. Try again."
             status_text.color = "red"
@@ -81,7 +68,7 @@ def main(page: ft.Page):
             status_text.color = "red"
             page.update()
             return
-        
+
         status_text.value = "Uploading to ElevenLabs..."
         status_text.color = "blue"
         page.update()
@@ -90,12 +77,11 @@ def main(page: ft.Page):
         headers = {"xi-api-key": API_KEY}
 
         try:
-            # Build multipart file from bytes
             files = {
                 "files": (
                     voice_file_name or "voice_sample.wav",
                     voice_file_bytes,
-                    "audio/wav",  # or audio/mpeg depending on your file
+                    "audio/wav",
                 )
             }
             data = {"name": "MyClonedVoice"}
@@ -114,7 +100,6 @@ def main(page: ft.Page):
             else:
                 status_text.value = f"Error from API: {response.text}"
                 status_text.color = "red"
-
         except Exception as err:
             status_text.value = f"Error: {err}"
             status_text.color = "red"
@@ -162,7 +147,6 @@ def main(page: ft.Page):
                 status_text.value = "Playing..."
                 status_text.color = "green"
 
-                # response.content is raw audio bytes
                 audio_data = base64.b64encode(response.content).decode("utf-8")
                 audio_player.src = None
                 audio_player.src_base64 = audio_data
@@ -177,18 +161,17 @@ def main(page: ft.Page):
 
         page.update()
 
-    # --- LAYOUT ---
     file_picker = ft.FilePicker(on_result=pick_files_result)
     page.overlay.append(file_picker)
-    
+
     upload_btn = ft.ElevatedButton("1. Upload Voice", on_click=open_picker_fast)
     clone_btn = ft.ElevatedButton("2. Learn Voice", disabled=True, on_click=clone_voice)
-    
+
     prompt_input = ft.TextField(label="What should I say?", multiline=True)
     speak_btn = ft.ElevatedButton("3. Speak", on_click=generate_speech)
-    # start hidden until voice is cloned
     input_area = ft.Column([ft.Divider(), prompt_input, speak_btn], visible=False)
 
     page.add(header, upload_btn, clone_btn, status_text, input_area)
 
-ft.app(target=main)
+# IMPORTANT: force web browser view, port 8000
+ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=8000)
