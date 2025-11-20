@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Voice Clone UI</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #121212; color: white; }
+    input, button { padding: 12px; margin-top: 10px; width: 100%; font-size: 16px; }
+    button { background: #005eff; border: none; color: white; cursor: pointer; border-radius: 8px; }
+    button:hover { background: #003ec9; }
+    h1, h2 { color: #66aaff; }
+    audio { margin-top: 20px; width: 100%; }
+  </style>
+</head>
+<body>
+
+  <h1>Voice Clone UI</h1>
+
+  <h2>1. Upload Voice Sample</h2>
+  <input type="file" id="voiceFile" accept="audio/*" />
+  <button id="uploadBtn">Upload & Clone</button>
+  <p id="uploadStatus"></p>
+
+  <h2>2. Type Text</h2>
+  <input type="text" id="textToSpeak" placeholder="Enter text..." />
+  <button id="speakBtn">Speak</button>
+  <p id="speakStatus"></p>
+
+  <audio id="player" controls></audio>
+
+  <script>
+    const backendUrl = "https://voice-app-py.onrender.com";
+    let voiceId = null;
+
+    document.getElementById("uploadBtn").onclick = async () => {
+      const file = document.getElementById("voiceFile").files[0];
+      const status = document.getElementById("uploadStatus");
+
+      if (!file) {
+        status.textContent = "Please choose an audio file.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", "MyVoice");
+
+      status.textContent = "Uploading & cloning...";
+
+      try {
+        const res = await fetch(backendUrl + "/clone-voice", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (data.voice_id) {
+          voiceId = data.voice_id;
+          status.textContent = "Voice cloned! Voice ID: " + voiceId;
+        } else {
+          status.textContent = "Error: " + JSON.stringify(data);
+        }
+      } catch (e) {
+        status.textContent = "Error: " + e;
+      }
+    };
+
+
+    document.getElementById("speakBtn").onclick = async () => {
+      const status = document.getElementById("speakStatus");
+      const text = document.getElementById("textToSpeak").value;
+
+      if (!voiceId) {
+        status.textContent = "Clone a voice first.";
+        return;
+      }
+      if (!text.trim()) {
+        status.textContent = "Enter some text.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("voice_id", voiceId);
+      formData.append("text", text);
+
+      status.textContent = "Generating speech...";
+
+      try {
+        const res = await fetch(backendUrl + "/speak", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          status.textContent = "Error: " + JSON.stringify(data);
+          return;
+        }
+
+        const audioBlob = await res.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const player = document.getElementById("player");
+
+        player.src = audioUrl;
+        status.textContent = "Playing...";
+        player.play();
+
+      } catch (e) {
+        status.textContent = "Error: " + e;
+      }
+    };
+  </script>
+
+</body>
+</html>
